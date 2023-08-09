@@ -1,0 +1,49 @@
+version: "3"
+
+services:
+  web: &web
+    build:
+      context: .
+      dockerfile: Dockerfile
+    platform: linux/amd64
+    image: safeware/bot-whatsapp-front:latest
+    command: gunicorn main.wsgi --bind 0.0.0.0:8090 --workers=1
+    volumes:
+      - ./front/:/code
+    ports:
+      - "8090:8090"
+    expose:
+      - "8090"
+    restart: always
+    env_file:
+      - ./front/conf/.env
+
+  worker:
+    <<: *web
+    image: worker-dashboard:1.0.0
+    command: celery -A main worker -B -l info --loglevel=info
+    restart: always
+    depends_on:
+      - rabbit-mq
+    ports:
+      - 8082:8082
+
+  rabbit-mq:
+    image: rabbitmq:3.11.3-management
+    restart: always
+    env_file:
+      - ./front/conf/.env
+  
+  browser:
+    image: selenium/standalone-firefox:4.6.0-20221104
+    restart: always
+    ports:
+      - "4444:4444"
+      - "7900:7900"
+    volumes:
+      - ./descargas:/home/seluser/Downloads
+    shm_size: 2g
+    platform: linux/amd64
+
+volumes:
+  dbdata:
